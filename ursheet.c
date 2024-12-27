@@ -10,6 +10,7 @@
 #include <err.h>
 #include <ctype.h>
 #include <stdlib.h>
+#include <string.h>
 #include <stdio.h>
 #include <getopt.h>
 #include <assert.h>
@@ -57,8 +58,8 @@ struct Cell;
 
 union As
 {
+	struct { const char *s; size_t l; } txt;
 	const long double	num;
-	const char			*txt;
 	const struct Cell	*ref;
 };
 
@@ -92,6 +93,9 @@ static void pushTokenIntoCell (struct Cell *const, enum TokenKind, union As);
 
 static void setCell2Error (struct Cell *const, u8);
 static void operateCell (struct Cell *const);
+
+static void getStringAsToken (const char *const, size_t*, union As*);
+static void getReferenceAsToken ();
 
 int main (int argc, char **argv)
 {
@@ -156,7 +160,7 @@ static void getTableDimensions (const char *src, u16 *row, u16 *col)
 
 static void lexTable (struct UrSh *const us)
 {
-	union As empty;
+	union As tokInfo;
 	struct Cell *currentCell = &us->grid[0];
 
 	u16 nrow = 0;
@@ -169,13 +173,28 @@ static void lexTable (struct UrSh *const us)
 			case '/':
 			case '*':
 			case '^':
-			case '=': pushTokenIntoCell(currentCell, chr, empty); break;
-			case '|': operateCell(currentCell++); break;
-			case '"': break;
-			case '@': break;
+			case '=':
+				pushTokenIntoCell(currentCell, chr, tokInfo);
+				break;
 
-			case 10 : currentCell = &us->grid[++nrow * us->sz.cols]; break;
+			case '|':
+				operateCell(currentCell++);
+				break;
+
+			case  10:
+				currentCell = &us->grid[++nrow * us->sz.cols];
+				break;
+
+			case '"':
+				getStringAsToken(us->src, &k, &tokInfo);
+				printf("string found: `%.*s` (%ld)\n", (int) tokInfo.txt.l, tokInfo.txt.s, tokInfo.txt.l);
+				break;
+
+			case '@':
+				break;
 		}
+
+
 	}
 
 	printf("%d\n", currentCell->kind);
@@ -190,6 +209,7 @@ static void pushTokenIntoCell (struct Cell *const cc, enum TokenKind kind, union
 	
 	struct Token* this = &cc->family[cc->nthT++];
 	this->kind = kind;
+	memcpy(&this->as, &as, sizeof(as));
 }
 
 static void setCell2Error (struct Cell *const cc, u8 which)
@@ -198,11 +218,29 @@ static void setCell2Error (struct Cell *const cc, u8 which)
 		"!overflow"
 	};
 
-	cc->as.txt = errors[which];
+	cc->as.txt.s = errors[which];
 	cc->kind = CellIsError;
 }
 
-static void operateCell (struct Cell *const)
+static void operateCell (struct Cell *const cc)
+{
+
+}
+
+static void getStringAsToken (const char *const src, size_t *k, union As *info)
+{
+	info->txt.l = 0;
+	info->txt.s = src + *k + 1;
+
+	do {
+		*k += 1;
+		info->txt.l++;
+	} while (src[*k] != '"');
+
+	info->txt.l--;
+}
+
+static void getReferenceAsToken ()
 {
 
 }
