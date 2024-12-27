@@ -17,11 +17,13 @@
 
 struct UrSh
 {
+	struct	{ unsigned short rows, cols; } sz;
 	size_t	length;
 	char	*filename, *src;
 };
 
 static void readContents (struct UrSh *const, FILE*);
+static void getTableDimensions (const char*, unsigned short*, unsigned short*);
 
 int main (int argc, char **argv)
 {
@@ -31,9 +33,11 @@ int main (int argc, char **argv)
 	struct UrSh us = {0};
 
 	us.filename = argv[1];
-	readContents(&us, fopen(us.filename, "r"));
 
-	printf("%s", us.src);
+	readContents(&us, fopen(us.filename, "r"));
+	getTableDimensions(us.src, &us.sz.rows, &us.sz.cols);
+
+	printf("%d %d", us.sz.rows, us.sz.cols);
 
 	return 0;
 }
@@ -56,4 +60,24 @@ static void readContents (struct UrSh *const us, FILE *file)
 		errx(EXIT_FAILURE, "cannot read whole file (%ld/%ld B)", us->length, BRead);	
 
 	fclose(file);
+}
+
+static void getTableDimensions (const char *src, unsigned short *row, unsigned short *col)
+{
+	unsigned short mcol = 0;
+
+	while (*src) {
+		switch (*src++) {
+			case '|':
+				mcol++;
+				break;
+			case '\n':
+				*row += 1;
+				*col = (*col > mcol) ? *col : mcol;
+				mcol = 0;
+				break;
+		}
+	}
+
+	*col = (*col > mcol) ? *col : mcol;
 }
