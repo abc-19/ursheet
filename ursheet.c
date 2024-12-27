@@ -88,9 +88,10 @@ static void readContents (struct UrSh *const, FILE*);
 static void getTableDimensions (const char*, u16*, u16*);
 
 static void lexTable (struct UrSh *const);
-static void pushTokenIntoCell (struct Cell *const, enum TokenKind);
+static void pushTokenIntoCell (struct Cell *const, enum TokenKind, union As);
 
 static void setCell2Error (struct Cell *const, u8);
+static void operateCell (struct Cell *const);
 
 int main (int argc, char **argv)
 {
@@ -155,7 +156,10 @@ static void getTableDimensions (const char *src, u16 *row, u16 *col)
 
 static void lexTable (struct UrSh *const us)
 {
+	union As empty;
 	struct Cell *currentCell = &us->grid[0];
+
+	u16 nrow = 0;
 
 	for (size_t k = 0; k < us->length; k++) {
 		const char chr = us->src[k];
@@ -165,19 +169,19 @@ static void lexTable (struct UrSh *const us)
 			case '/':
 			case '*':
 			case '^':
-			case '=': pushTokenIntoCell(currentCell, chr); break;
-
-			case 10 : break;
-			case '|': break;
+			case '=': pushTokenIntoCell(currentCell, chr, empty); break;
+			case '|': operateCell(currentCell++); break;
 			case '"': break;
 			case '@': break;
+
+			case 10 : currentCell = &us->grid[++nrow * us->sz.cols]; break;
 		}
 	}
 
-	printf("%s\n", currentCell->as.txt);
+	printf("%d\n", currentCell->kind);
 }
 
-static void pushTokenIntoCell (struct Cell *const cc, enum TokenKind kind)
+static void pushTokenIntoCell (struct Cell *const cc, enum TokenKind kind, union As as)
 {
 	if (cc->nthT == 0) {
 		setCell2Error(cc, ErrCellOverflow);
@@ -196,4 +200,9 @@ static void setCell2Error (struct Cell *const cc, u8 which)
 
 	cc->as.txt = errors[which];
 	cc->kind = CellIsError;
+}
+
+static void operateCell (struct Cell *const)
+{
+
 }
