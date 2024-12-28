@@ -26,7 +26,8 @@
 #define	i64	signed long
 
 #define	FAMILY_SIZE	64
-#define	MAX_COLS	25 + 25 * 26
+#define	MAX_COLS	26 + 25 * 26
+#define	MAX_ROWS	256
 
 enum TokenKind
 {
@@ -59,9 +60,9 @@ struct Cell;
 
 union As
 {
-	struct { const char *s; size_t l; } txt;
-	const long double	num;
-	const struct Cell	*ref;
+	struct { const char *s; size_t len; } txt;
+	struct { const struct Cell *to; u16 col, row; } ref;
+	long double num;
 };
 
 struct Token
@@ -98,6 +99,8 @@ static void operateCell (struct Cell *const);
 static void getStringAsToken (const char *const, size_t*, union As*);
 static void getReferenceAsToken (const char *const, size_t*, union As*);
 
+static long double getNumberAsToken (const char *const, size_t*);
+
 int main (int argc, char **argv)
 {
 	if (argc != 2)
@@ -108,6 +111,11 @@ int main (int argc, char **argv)
 
 	readContents(&us, fopen(us.filename, "r"));
 	getTableDimensions(us.src, &us.sz.rows, &us.sz.cols);
+
+	if (us.sz.cols >= MAX_COLS)
+		errx(EXIT_FAILURE, "Maximum number of columns reached which is %d\n", MAX_COLS);
+	if (us.sz.rows >= MAX_ROWS)
+		errx(EXIT_FAILURE, "Maximum number of rows reached which is %d\n", MAX_ROWS);
 
 	us.grid = (struct Cell*) calloc(us.sz.rows * us.sz.cols, sizeof(struct Cell));
 	assert(us.grid && "cannot allocate memory");
@@ -168,6 +176,7 @@ static void lexTable (struct UrSh *const us)
 
 	for (size_t k = 0; k < us->length; k++) {
 		const char chr = us->src[k];
+		u8 isNumber = 0;
 
 		switch (chr) {
 			case '+':
@@ -188,15 +197,24 @@ static void lexTable (struct UrSh *const us)
 
 			case '"':
 				getStringAsToken(us->src, &k, &tokInfo);
-				printf("string found: `%.*s` (%ld)\n", (int) tokInfo.txt.l, tokInfo.txt.s, tokInfo.txt.l);
+				printf("string found: `%.*s` (%ld)\n", (int) tokInfo.txt.len, tokInfo.txt.s, tokInfo.txt.len);
 				break;
 
 			case '@':
 				getReferenceAsToken(us->src, &k, &tokInfo);
+				printf("reference found: %d %d\n", tokInfo.ref.row, tokInfo.ref.col);
+				break;
+
+			case '-':
+				if ((k + 1) < us->length && isdigit(us->src[k + 1])) isNumber = 1;
+				else pushTokenIntoCell(currentCell, chr, tokInfo);
 				break;
 		}
 
-
+		if (isdigit(chr) || isNumber) {
+			tokInfo.num = getNumberAsToken(us->src, &k);
+			printf("number found: %Lf\n", tokInfo.num);
+		}
 	}
 
 	printf("%d\n", currentCell->kind);
@@ -231,15 +249,15 @@ static void operateCell (struct Cell *const cc)
 
 static void getStringAsToken (const char *const src, size_t *k, union As *info)
 {
-	info->txt.l = 0;
+	info->txt.len = 0;
 	info->txt.s = src + *k + 1;
 
 	do {
 		*k += 1;
-		info->txt.l++;
+		info->txt.len++;
 	} while (src[*k] != '"');
 
-	info->txt.l--;
+	info->txt.len--;
 }
 
 static void getReferenceAsToken (const char *const src, size_t *k, union As *info)
@@ -255,16 +273,25 @@ static void getReferenceAsToken (const char *const src, size_t *k, union As *inf
 	*k += 1;
 	if (!isdigit(src[*k])) goto setPosition;
 
+	/* If the row provied is way too big it will become zero therefore
+	 * it will not produce error. */
 	char *ends;
 	row = (u16) strtold(src + *k, &ends);
 	*k += (size_t) (ends - (src + *k)) - 1;
 
-
-	setPosition:
-	printf("%d %d\n", row, col);
-	exit(0);
+setPosition:
+	info->ref.col = col;
+	info->ref.row = row;
 }
 
+static long double getNumberAsToken (const char *const src, size_t *k)
+{
+	char *ends;
+	long double numero = strtold(src + *k, &ends);
+
+	*k += (size_t) (ends - (src + *k)) - 1;
+	return numero;
+}
 
 
 
