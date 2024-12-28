@@ -51,14 +51,15 @@ enum CellKind
 {
 	CellIsEmpty		= 0,
 	CellIsError		= 1,
-	CellIsNumber	= 2,
-	CellIsText		= 3
+	CellIsNumber	= TokenIsNumber,
+	CellIsText		= TokenIsString,
 };
 
 enum CellErrs
 {
-	ErrCellOverflow	= 0,
-	ErrCellUnknown	= 1,
+	ErrCellOverflow		= 0,
+	ErrCellUnknown		= 1,
+	ErrCellMalformed	= 2
 };
 
 struct Cell;
@@ -247,9 +248,15 @@ static void pushTokenIntoCell (struct Cell *const cc, enum TokenKind kind, union
 
 static void setCell2Error (struct Cell *const cc, u8 which)
 {
+	/* Errors
+	 * 1. So many tokens for that cell (family so big).
+	 * 2. Unknown character found in the cell (dont know how to interpret it).
+	 * 3. Valid tokens but meaningless (i.e. + - 3 *)
+	 */
 	static const char *const errors[] = {
 		"!overflow",
-		"!unknown"
+		"!unknown",
+		"!malformed"
 	};
 
 	cc->as.txt.s = errors[which];
@@ -258,7 +265,17 @@ static void setCell2Error (struct Cell *const cc, u8 which)
 
 static void operateCell (struct Cell *const cc)
 {
-	puts("op !");
+	if (cc->nthT == 0) return;
+
+	const enum TokenKind header = cc->family[0].kind;
+
+	switch (cc->family[0].kind) {
+		case TokenIsString:
+		case TokenIsNumber:
+			memcpy(&cc->as, &cc->family[0].as, sizeof(cc->as));
+			cc->kind = (enum CellKind) header;
+			break;
+	}
 }
 
 static void getStringAsToken (const char *const src, size_t *k, union As *info)
