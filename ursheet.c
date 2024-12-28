@@ -107,6 +107,7 @@ static void getStringAsToken (const char *const, size_t*, union As*);
 static void getReferenceAsToken (const char *const, size_t*, union As*);
 
 static long double getNumberAsToken (const char *const, size_t*);
+static void printTable (struct Cell*, const u16, const u16);
 
 int main (int argc, char **argv)
 {
@@ -128,9 +129,10 @@ int main (int argc, char **argv)
 	assert(us.grid && "cannot allocate memory");
 
 	lexTable(&us);
+	printTable(&us.grid[0], us.sz.rows, us.sz.cols);
+
 	free(us.grid);
 	free(us.src);
-
 	return 0;
 }
 
@@ -275,6 +277,16 @@ static void operateCell (struct Cell *const cc)
 			memcpy(&cc->as, &cc->family[0].as, sizeof(cc->as));
 			cc->kind = (enum CellKind) header;
 			break;
+
+		case TokenIsReference:
+			break;
+
+		case TokenIsExpr:
+			break;
+
+		default:
+			setCell2Error(cc, ErrCellMalformed);
+			break;
 	}
 }
 
@@ -326,5 +338,17 @@ static long double getNumberAsToken (const char *const src, size_t *k)
 	return numero;
 }
 
-
-
+static void printTable (struct Cell *cell, const u16 rows, const u16 cols)
+{
+	for (u16 row = 0; row < rows; row++) {
+		for (u16 col = 0; col < cols; col++, cell++) {
+			switch (cell->kind) {
+				case CellIsEmpty:	printf(" |"); break;
+				case CellIsNumber:	printf("%.3Lf |", cell->as.num); break;
+				case CellIsError:	printf("%s |", cell->as.txt.s); break;
+				case CellIsText:	printf("%.*s |", (int) cell->as.txt.len, cell->as.txt.s); break;
+			}
+		}
+		putchar(10);
+	}
+}
