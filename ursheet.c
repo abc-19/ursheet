@@ -20,10 +20,10 @@
 #define	u32		unsigned int
 #define	u64		unsigned long
 
-#define	i8		signed char
-#define	i16		signed short
-#define	i32		signed int
-#define	i64		signed long
+#define	i8		char
+#define	i16		short
+#define	i32		int
+#define	i64		long
 
 #define	Bool	unsigned char
 #define	True	1
@@ -59,7 +59,9 @@ enum CellErrs
 {
 	ErrCellOverflow		= 0,
 	ErrCellUnknown		= 1,
-	ErrCellMalformed	= 2
+	ErrCellMalformed	= 2,
+	ErrCellBounds		= 3,
+	ErrCellPremature	= 4
 };
 
 struct Cell;
@@ -67,7 +69,7 @@ struct Cell;
 union As
 {
 	struct { const char *s; size_t len; } txt;
-	struct { const struct Cell *to; u16 col, row; } ref;
+	struct Cell *ref;
 	long double num;
 };
 
@@ -104,10 +106,12 @@ static void setCell2Error (struct Cell *const, u8);
 static void operateCell (struct Cell *const);
 
 static void getStringAsToken (const char *const, size_t*, union As*);
-static void getReferenceAsToken (const char *const, size_t*, union As*);
+static i16 getReferenceAsToken (const char *const, size_t*, const u16, const u16);
 
 static long double getNumberAsToken (const char *const, size_t*);
 static void printTable (struct Cell*, const u16, const u16);
+
+static void solveCopying (struct Cell*, struct Cell*);
 
 int main (int argc, char **argv)
 {
@@ -192,27 +196,38 @@ static void lexTable (struct UrSh *const us)
 			case '/':
 			case '*':
 			case '^':
-			case '=':
+			case '=': {
 				pushTokenIntoCell(currentCell, chr, tokInfo);
 				continue;
+			}
 
-			case '|':
+			case '|': {
 				operateCell(currentCell++);
 				continue;
+			}
 
-			case  10:
+			case  10: {
 				currentCell = &us->grid[++nrow * us->sz.cols];
 				continue;
+			}
 
-			case '"':
+			case '"': {
 				getStringAsToken(us->src, &k, &tokInfo);
 				pushTokenIntoCell(currentCell, TokenIsString, tokInfo);
 				continue;
+			}
 
-			case '@':
-				getReferenceAsToken(us->src, &k, &tokInfo);
+			case '@': {
+				i16 at = getReferenceAsToken(us->src, &k, us->sz.rows, us->sz.cols);
+
+				if (at == -1)
+				{ setCell2Error(currentCell, ErrCellBounds); continue; }
+
+				tokInfo.ref = &us->grid[at];
+
 				pushTokenIntoCell(currentCell, TokenIsReference, tokInfo);
 				continue;
+			}
 		}
 
 		if (chr == '-') {
@@ -254,11 +269,15 @@ static void setCell2Error (struct Cell *const cc, u8 which)
 	 * 1. So many tokens for that cell (family so big).
 	 * 2. Unknown character found in the cell (dont know how to interpret it).
 	 * 3. Valid tokens but meaningless (i.e. + - 3 *)
+	 * 4. Reference outta bounds.
+	 * 5. Trying to use a reference beyond the current one.
 	 */
 	static const char *const errors[] = {
 		"!overflow",
 		"!unknown",
-		"!malformed"
+		"!malformed",
+		"!bounds",
+		"!premature"
 	};
 
 	cc->as.txt.s = errors[which];
@@ -279,9 +298,13 @@ static void operateCell (struct Cell *const cc)
 			break;
 
 		case TokenIsReference:
+			solveCopying(cc, cc->family[0].as.ref);
 			break;
 
 		case TokenIsExpr:
+			break;
+
+		case TokenIsClone:
 			break;
 
 		default:
@@ -303,7 +326,7 @@ static void getStringAsToken (const char *const src, size_t *k, union As *info)
 	info->txt.len--;
 }
 
-static void getReferenceAsToken (const char *const src, size_t *k, union As *info)
+static i16 getReferenceAsToken (const char *const src, size_t *k, const u16 rows, const u16 cols)
 {
 	u16 col = 0, row = 0;
 
@@ -311,9 +334,11 @@ static void getReferenceAsToken (const char *const src, size_t *k, union As *inf
 	if (isalpha(src[*k])) col = (u16) (src[*k] - 'a');
 
 	*k += 1;
-	if (isalpha(src[*k - 1]) && isalpha(src[*k])) col = ((u16) (src[*k - 1] - 'a' + 1) * 26) + ((u16) (src[*k] - 'a'));
+	if (isalpha(src[*k - 1]) && isalpha(src[*k])) {
+		col = ((u16) (src[*k - 1] - 'a' + 1) * 26) + ((u16) (src[*k] - 'a'));
+		*k += 1;
+	}
 
-	*k += 1;
 	if (!isdigit(src[*k])) goto setPosition;
 
 	/* If the row provied is way too big it will become zero therefore
@@ -323,8 +348,12 @@ static void getReferenceAsToken (const char *const src, size_t *k, union As *inf
 	*k += (size_t) (ends - (src + *k)) - 1;
 
 setPosition:
-	info->ref.col = col;
-	info->ref.row = row;
+	if (col >= cols || row >= rows)
+		return -1;
+
+	printf("%d %d\n", col, row);
+
+	return row * rows + col;
 }
 
 static long double getNumberAsToken (const char *const src, size_t *k)
@@ -351,4 +380,12 @@ static void printTable (struct Cell *cell, const u16 rows, const u16 cols)
 		}
 		putchar(10);
 	}
+}
+
+static void solveCopying (struct Cell *cell, struct Cell *ref)
+{
+	if (ref >= cell)
+	{ setCell2Error(cell, ErrCellPremature); return; }
+
+	memcpy(cell, ref, sizeof(*cell));
 }
