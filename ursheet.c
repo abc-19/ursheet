@@ -15,15 +15,19 @@
 #include <getopt.h>
 #include <assert.h>
 
-#define	u8	unsigned char
-#define	u16	unsigned short
-#define	u32	unsigned int
-#define	u64	unsigned long
+#define	u8		unsigned char
+#define	u16		unsigned short
+#define	u32		unsigned int
+#define	u64		unsigned long
 
-#define	i8	signed char
-#define	i16	signed short
-#define	i32	signed int
-#define	i64	signed long
+#define	i8		signed char
+#define	i16		signed short
+#define	i32		signed int
+#define	i64		signed long
+
+#define	Bool	unsigned char
+#define	True	1
+#define False	0
 
 #define	FAMILY_SIZE	64
 #define	MAX_COLS	26 + 25 * 26
@@ -54,6 +58,7 @@ enum CellKind
 enum CellErrs
 {
 	ErrCellOverflow	= 0,
+	ErrCellUnknown	= 1,
 };
 
 struct Cell;
@@ -77,6 +82,7 @@ struct Cell
 	union	As as;
 	u16		nthT;
 	enum	CellKind kind;
+	Bool	solved;
 };
 
 struct UrSh
@@ -176,7 +182,7 @@ static void lexTable (struct UrSh *const us)
 
 	for (size_t k = 0; k < us->length; k++) {
 		const char chr = us->src[k];
-		u8 isNumber = 0;
+		Bool isNumber = False;
 
 		switch (chr) {
 			case '+':
@@ -185,44 +191,51 @@ static void lexTable (struct UrSh *const us)
 			case '^':
 			case '=':
 				pushTokenIntoCell(currentCell, chr, tokInfo);
-				break;
+				continue;
 
 			case '|':
 				operateCell(currentCell++);
-				break;
+				continue;
 
 			case  10:
 				currentCell = &us->grid[++nrow * us->sz.cols];
-				break;
+				continue;
 
 			case '"':
 				getStringAsToken(us->src, &k, &tokInfo);
-				printf("string found: `%.*s` (%ld)\n", (int) tokInfo.txt.len, tokInfo.txt.s, tokInfo.txt.len);
-				break;
+				pushTokenIntoCell(currentCell, TokenIsString, tokInfo);
+				continue;
 
 			case '@':
 				getReferenceAsToken(us->src, &k, &tokInfo);
-				printf("reference found: %d %d\n", tokInfo.ref.row, tokInfo.ref.col);
-				break;
-
-			case '-':
-				if ((k + 1) < us->length && isdigit(us->src[k + 1])) isNumber = 1;
-				else pushTokenIntoCell(currentCell, chr, tokInfo);
-				break;
+				pushTokenIntoCell(currentCell, TokenIsReference, tokInfo);
+				continue;
 		}
 
+		if (chr == '-') {
+			if ((k + 1) < us->length && isdigit(us->src[k + 1]))
+			{ isNumber = True; goto getNumber; }
+
+			else
+			pushTokenIntoCell(currentCell, chr, tokInfo);
+
+			continue;
+		}
+
+getNumber:
 		if (isdigit(chr) || isNumber) {
 			tokInfo.num = getNumberAsToken(us->src, &k);
-			printf("number found: %Lf\n", tokInfo.num);
+			pushTokenIntoCell(currentCell, TokenIsNumber, tokInfo);
+			continue;
 		}
-	}
 
-	printf("%d\n", currentCell->kind);
+		setCell2Error(currentCell, ErrCellUnknown);
+	}
 }
 
 static void pushTokenIntoCell (struct Cell *const cc, enum TokenKind kind, union As as)
 {
-	if (cc->nthT == 0) {
+	if (cc->nthT == FAMILY_SIZE) {
 		setCell2Error(cc, ErrCellOverflow);
 		return;
 	}
@@ -235,7 +248,8 @@ static void pushTokenIntoCell (struct Cell *const cc, enum TokenKind kind, union
 static void setCell2Error (struct Cell *const cc, u8 which)
 {
 	static const char *const errors[] = {
-		"!overflow"
+		"!overflow",
+		"!unknown"
 	};
 
 	cc->as.txt.s = errors[which];
@@ -244,7 +258,7 @@ static void setCell2Error (struct Cell *const cc, u8 which)
 
 static void operateCell (struct Cell *const cc)
 {
-
+	puts("op !");
 }
 
 static void getStringAsToken (const char *const src, size_t *k, union As *info)
