@@ -26,6 +26,7 @@
 #define	i64	signed long
 
 #define	FAMILY_SIZE	64
+#define	MAX_COLS	25 + 25 * 26
 
 enum TokenKind
 {
@@ -95,7 +96,7 @@ static void setCell2Error (struct Cell *const, u8);
 static void operateCell (struct Cell *const);
 
 static void getStringAsToken (const char *const, size_t*, union As*);
-static void getReferenceAsToken ();
+static void getReferenceAsToken (const char *const, size_t*, union As*);
 
 int main (int argc, char **argv)
 {
@@ -191,6 +192,7 @@ static void lexTable (struct UrSh *const us)
 				break;
 
 			case '@':
+				getReferenceAsToken(us->src, &k, &tokInfo);
 				break;
 		}
 
@@ -240,7 +242,29 @@ static void getStringAsToken (const char *const src, size_t *k, union As *info)
 	info->txt.l--;
 }
 
-static void getReferenceAsToken ()
+static void getReferenceAsToken (const char *const src, size_t *k, union As *info)
 {
+	u16 col = 0, row = 0;
 
+	*k += 1;
+	if (isalpha(src[*k])) col = (u16) (src[*k] - 'a');
+
+	*k += 1;
+	if (isalpha(src[*k - 1]) && isalpha(src[*k])) col = ((u16) (src[*k - 1] - 'a' + 1) * 26) + ((u16) (src[*k] - 'a'));
+
+	*k += 1;
+	if (!isdigit(src[*k])) goto setPosition;
+
+	char *ends;
+	row = (u16) strtold(src + *k, &ends);
+	*k += (size_t) (ends - (src + *k)) - 1;
+
+
+	setPosition:
+	printf("%d %d\n", row, col);
+	exit(0);
 }
+
+
+
+
