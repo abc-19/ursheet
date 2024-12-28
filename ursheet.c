@@ -286,6 +286,8 @@ setPosition:
 
 static long double getNumberAsToken (const char *const src, size_t *k)
 {
+	/* In case the number is too big it will be turned into inf
+	 * so no problem either. */
 	char *ends;
 	long double numero = strtold(src + *k, &ends);
 
