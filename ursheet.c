@@ -139,7 +139,7 @@ int main (int argc, char **argv)
 static void readContents (struct UrSh *const us, FILE *file)
 {
 	if (!file)
-		err(EXIT_FAILURE, "fatal: %s generating some issues", us->filename);
+		err(EXIT_FAILURE, "fatal: %s is generating some issues", us->filename);
 
 	fseek(file, 0, SEEK_END);
 	us->length = ftell(file);
@@ -344,7 +344,7 @@ static void printTable (struct Cell *cell, const u16 rows, const u16 cols)
 		for (u16 col = 0; col < cols; col++, cell++) {
 			switch (cell->kind) {
 				case CellIsEmpty:	printf(" |"); break;
-				case CellIsNumber:	printf("%.3Lf |", cell->as.num); break;
+				case CellIsNumber:	printf("%.5Lf |", cell->as.num); break;
 				case CellIsError:	printf("%s |", cell->as.txt.s); break;
 				case CellIsText:	printf("%.*s |", (int) cell->as.txt.len, cell->as.txt.s); break;
 			}
