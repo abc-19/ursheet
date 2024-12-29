@@ -7,34 +7,38 @@
  *	  '-\__Y__/-'
  *	     `---`
  */
+#include <err.h>
+#include <ctype.h>
+#include <getopt.h>
+#include <assert.h>
+
 #include "incl.h"
 #include "solver.h"
 
+static void parseArgs (int, char**, char**, u16*);
 static void readContents (struct UrSh *const, FILE*);
+
 static void getTableDimensions (const char*, u16*, u16*);
-
 static void lexTable (struct UrSh *const);
+
 static void getStringAsToken (const char *const, size_t*, union As*);
-
 static i16 getReferenceAsToken (const char *const, size_t*, const u16, const u16);
+
 static long double getNumberAsToken (const char *const, size_t*);
-
 static void pushTokenIntoCell (struct Cell *const, enum TokenKind, union As);
+
 static void setCell2Error (struct Cell *const, u8);
-
 static void operateCell (struct Cell *const, const struct Cell *const, const u16);
-static void solveCopying (struct Cell*, struct Cell*);
 
+static void solveCopying (struct Cell*, struct Cell*);
 static void adjustColWidth (const struct Cell *const, u16*, const u16);
+
 static void printTable (struct Cell*, const u16*, const u16, const u16, const u16);
 
 int main (int argc, char **argv)
 {
-	if (argc != 2)
-		errx(EXIT_SUCCESS, "usage: %s <sheet>\nThat simple ;)", *argv);
-
 	struct UrSh us = {0};
-	us.filename = argv[1];
+	parseArgs(argc, argv, &us.filename, &us.decPrec);
 
 	readContents(&us, fopen(us.filename, "r"));
 	getTableDimensions(us.src, &us.sz.rows, &us.sz.cols);
@@ -58,6 +62,19 @@ int main (int argc, char **argv)
 	free(us.grid);
 	free(us.src);
 	return 0;
+}
+
+static void parseArgs (int argc, char **argv, char **filename, u16 *dp)
+{
+	i32 op;
+	while ((op = getopt(argc, argv, ":s:d:")) != -1) {
+		switch (op) {
+			case 's': *filename = optarg; break;
+			case 'd': *dp = atoi(optarg); break;
+			case ':': errx(EXIT_FAILURE, "'-%c' expects an argument.", optopt);
+			case '?': errx(EXIT_FAILURE, "'-%c' is not an option.", optopt);
+		}
+	}
 }
 
 static void readContents (struct UrSh *const us, FILE *file)
@@ -342,7 +359,7 @@ static void printTable (struct Cell *cell, const u16 *wds, const u16 rows, const
 			switch (cell->kind) {
 				case CellIsEmpty:	printf(" "); break;
 				case CellIsNumber:	printf(" %-*.*Lf ", maxW, dp, cell->as.num); break;
-				case CellIsError:	printf(" %-*.s ", maxW, cell->as.txt.s); break;
+				case CellIsError:	printf(" %-*s ", maxW, cell->as.txt.s); break;
 				case CellIsText:	printf(" %-*.*s ", maxW, (int) cell->as.txt.len, cell->as.txt.s); break;
 			}
 		}

@@ -10,13 +10,9 @@
 #ifndef URSH_INCL_H
 #define URSH_INCL_H
 
-#include <err.h>
-#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <getopt.h>
-#include <assert.h>
 
 #define	u8			unsigned char
 #define	u16			unsigned short
