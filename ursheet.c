@@ -218,8 +218,8 @@ static void operateCell (struct Cell *const cc)
 			break;
 
 		case TokenIsExpr:
-			solverSolve(cc);
-			errx(0, "fini!");
+			if (solverSolve(cc) != ErrCellNotErr)
+			{ setCell2Error(cc, ErrCellMalformed); }
 			break;
 
 		case TokenIsClone:
@@ -269,7 +269,7 @@ setPosition:
 	if (col >= cols || row >= rows)
 		return -1;
 
-	return row * rows + col;
+	return row * cols + col;
 }
 
 static long double getNumberAsToken (const char *const src, size_t *k)

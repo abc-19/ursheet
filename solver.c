@@ -14,7 +14,7 @@
 struct Exprssn
 {
 	struct Token family[FAMILY_SIZE];
-	u16 spos, qpos, firstOpPos;
+	u16 spos, qpos, opds, opts, firstOpPos;
 	Bool refsUsed;
 };
 
@@ -35,6 +35,8 @@ enum CellErrs solverSolve (struct Cell *cc)
 	struct Exprssn ex = {
 		.spos     = 0,
 		.qpos     = PARITION,
+		.opds     = 0,
+		.opts     = 0,
 		.refsUsed = False
 	};
 
@@ -55,7 +57,6 @@ enum CellErrs solverSolve (struct Cell *cc)
 
 			case TokenIsReference:
 				ex.refsUsed = True;
-				// TODO
 				break;
 
 			case TokenIsNumber:
@@ -71,15 +72,15 @@ enum CellErrs solverSolve (struct Cell *cc)
 	if ((e != ErrCellNotErr) || (e = mergeFamily(&ex)) != ErrCellNotErr || (e = setUpExprInCell(&ex, cc)) != ErrCellNotErr)
 		return e;
 
-	for (u16 k = 0; k < ex.spos; k++) {
+	/*for (u16 k = 0; k < ex.spos; k++) {
 		struct Token t = ex.family[k];
 		if (t.kind == TokenIsNumber)
 			printf("%Lf ", t.as.num);
 		else
 			printf("%c ", t.kind);
 	}
+	putchar(10);*/
 
-	putchar(10);
 	return doMath(cc);
 }
 
@@ -87,6 +88,9 @@ static enum CellErrs pushStack (struct Exprssn *ex, const long double asNum, con
 {
 	if (ex->spos == PARITION) return ErrCellOverflow;
 	struct Token *this = &ex->family[ex->spos++];
+
+	if (asOp == TokenIsNumber) ex->opds++;
+	else ex->opts++;
 
 	this->as.num = asNum;
 	this->kind = asOp;
@@ -142,7 +146,6 @@ static enum CellErrs rightParFound (struct Exprssn *ex)
 static enum CellErrs mergeFamily (struct Exprssn *ex)
 {
 	enum CellErrs e = ErrCellNotErr;
-	ex->firstOpPos = ex->spos;
 
 	while (ex->qpos > PARITION && e == ErrCellNotErr)
 		e = pushStack(ex, 0, ex->family[--ex->qpos].kind);
@@ -151,25 +154,38 @@ static enum CellErrs mergeFamily (struct Exprssn *ex)
 
 static enum CellErrs setUpExprInCell (struct Exprssn *ex, struct Cell *cc)
 {
-	if (ex->spos == 0)
+	if (ex->spos < 2)
 	{ return ErrCellMalformed; }
 
 	if (ex->refsUsed)
 	{ cc->clonable = True; }
 
 	memcpy(cc->family, ex->family, ex->spos * sizeof(*cc->family));
-
 	cc->nthT = ex->spos;
-	cc->opPos = ex->firstOpPos;
 
-	// Make sure everything is balanced...
-	// firstOpPos is realy necessary?
+	if ((ex->opds - ex->opts) != 1)
+	{ return ErrCellMalformed; }
+
+	return ErrCellNotErr;
 }
 
 static enum CellErrs doMath (struct Cell *cc)
 {
-	// Perform ops
-	errx(0, "got: %Lf\n", cc->as.num);
+	long double nums[PARITION + 1] = {0};
+	u16 nthn = 0;
+
+	for (u16 k = 0; k < cc->nthT; k++) {
+		struct Token tok = cc->family[k];
+		if (tok.kind == TokenIsNumber)
+		{ nums[nthn++] = tok.as.num; }
+
+		else if (nthn > 1)
+		{ long double ans = dOp(nums[nthn - 2], nums[nthn - 1], tok.kind); nums[--nthn - 1] = ans; }
+	}
+
+	cc->kind = CellIsNumber;
+	cc->as.num = nums[0];
+	return ErrCellNotErr;
 }
 
 static long double dOp (long double a, long double b, enum TokenKind o)
