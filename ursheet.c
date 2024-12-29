@@ -14,18 +14,19 @@ static void readContents (struct UrSh *const, FILE*);
 static void getTableDimensions (const char*, u16*, u16*);
 
 static void lexTable (struct UrSh *const);
-static void pushTokenIntoCell (struct Cell *const, enum TokenKind, union As);
-
-static void setCell2Error (struct Cell *const, u8);
-static void operateCell (struct Cell *const, const struct Cell *const, const u16);
-
 static void getStringAsToken (const char *const, size_t*, union As*);
+
 static i16 getReferenceAsToken (const char *const, size_t*, const u16, const u16);
-
 static long double getNumberAsToken (const char *const, size_t*);
-static void printTable (struct Cell*, const u16, const u16);
 
+static void pushTokenIntoCell (struct Cell *const, enum TokenKind, union As);
+static void setCell2Error (struct Cell *const, u8);
+
+static void operateCell (struct Cell *const, const struct Cell *const, const u16);
 static void solveCopying (struct Cell*, struct Cell*);
+
+static void adjustColWidth (const struct Cell *const, u16*, const u16);
+static void printTable (struct Cell*, const u16*, const u16, const u16, const u16);
 
 int main (int argc, char **argv)
 {
@@ -46,8 +47,13 @@ int main (int argc, char **argv)
 	us.grid = (struct Cell*) calloc(us.sz.rows * us.sz.cols, sizeof(struct Cell));
 	assert(us.grid && "cannot allocate memory");
 
+	us.sz.widths = (u16*) calloc(us.sz.cols, sizeof(u16));
+	assert(us.sz.widths && "cannot allocate memory");
+
+	us.decPrec = 2;
+
 	lexTable(&us);
-	printTable(&us.grid[0], us.sz.rows, us.sz.cols);
+	printTable(&us.grid[0], us.sz.widths, us.sz.rows, us.sz.cols, us.decPrec);
 
 	free(us.grid);
 	free(us.src);
@@ -101,7 +107,7 @@ static void lexTable (struct UrSh *const us)
 	union As tokInfo;
 	struct Cell *currentCell = &us->grid[0];
 
-	u16 nrow = 0;
+	u16 nrow = 0, ncol = 0;
 
 	for (size_t k = 0; k < us->length; k++) {
 		const char chr = us->src[k];
@@ -122,12 +128,14 @@ static void lexTable (struct UrSh *const us)
 			}
 
 			case '|': {
-				operateCell(currentCell++, firstRow, us->sz.cols);
+				operateCell(currentCell, firstRow, us->sz.cols);
+				adjustColWidth(currentCell++, &us->sz.widths[ncol++], us->decPrec);
 				continue;
 			}
 
 			case  10: {
 				currentCell = &us->grid[++nrow * us->sz.cols];
+				ncol = 0;
 				continue;
 			}
 
@@ -171,6 +179,58 @@ getNumber:
 
 		setCell2Error(currentCell, ErrCellUnknown);
 	}
+}
+
+static void getStringAsToken (const char *const src, size_t *k, union As *info)
+{
+	info->txt.len = 0;
+	info->txt.s = src + *k + 1;
+
+	do {
+		*k += 1;
+		info->txt.len++;
+	} while (src[*k] != '"');
+
+	info->txt.len--;
+}
+
+static i16 getReferenceAsToken (const char *const src, size_t *k, const u16 rows, const u16 cols)
+{
+	u16 col = 0, row = 0;
+
+	*k += 1;
+	if (isalpha(src[*k])) col = (u16) (tolower(src[*k]) - 'a');
+
+	*k += 1;
+	if (isalpha(src[*k - 1]) && isalpha(src[*k])) {
+		col = ((u16) (tolower(src[*k - 1]) - 'a' + 1) * 26) + ((u16) (tolower(src[*k]) - 'a'));
+		*k += 1;
+	}
+
+	if (!isdigit(src[*k])) goto setPosition;
+
+	/* If the row provied is way too big it will become zero therefore
+	 * it will not produce error. */
+	char *ends;
+	row = (u16) strtold(src + *k, &ends);
+	*k += (size_t) (ends - (src + *k)) - 1;
+
+setPosition:
+	if (col >= cols || row >= rows)
+	{ return -1; }
+
+	return row * cols + col;
+}
+
+static long double getNumberAsToken (const char *const src, size_t *k)
+{
+	/* In case the number is too big it will be turned into inf
+	 * so no problem either. */
+	char *ends;
+	long double numero = strtold(src + *k, &ends);
+
+	*k += (size_t) (ends - (src + *k)) - 1;
+	return numero;
 }
 
 static void pushTokenIntoCell (struct Cell *const cc, enum TokenKind kind, union As as)
@@ -242,73 +302,6 @@ static void operateCell (struct Cell *const cc, const struct Cell *fRow, const u
 	}
 }
 
-static void getStringAsToken (const char *const src, size_t *k, union As *info)
-{
-	info->txt.len = 0;
-	info->txt.s = src + *k + 1;
-
-	do {
-		*k += 1;
-		info->txt.len++;
-	} while (src[*k] != '"');
-
-	info->txt.len--;
-}
-
-static i16 getReferenceAsToken (const char *const src, size_t *k, const u16 rows, const u16 cols)
-{
-	u16 col = 0, row = 0;
-
-	*k += 1;
-	if (isalpha(src[*k])) col = (u16) (tolower(src[*k]) - 'a');
-
-	*k += 1;
-	if (isalpha(src[*k - 1]) && isalpha(src[*k])) {
-		col = ((u16) (tolower(src[*k - 1]) - 'a' + 1) * 26) + ((u16) (tolower(src[*k]) - 'a'));
-		*k += 1;
-	}
-
-	if (!isdigit(src[*k])) goto setPosition;
-
-	/* If the row provied is way too big it will become zero therefore
-	 * it will not produce error. */
-	char *ends;
-	row = (u16) strtold(src + *k, &ends);
-	*k += (size_t) (ends - (src + *k)) - 1;
-
-setPosition:
-	if (col >= cols || row >= rows)
-	{ return -1; }
-
-	return row * cols + col;
-}
-
-static long double getNumberAsToken (const char *const src, size_t *k)
-{
-	/* In case the number is too big it will be turned into inf
-	 * so no problem either. */
-	char *ends;
-	long double numero = strtold(src + *k, &ends);
-
-	*k += (size_t) (ends - (src + *k)) - 1;
-	return numero;
-}
-
-static void printTable (struct Cell *cell, const u16 rows, const u16 cols)
-{
-	for (u16 row = 0; row < rows; row++) {
-		for (u16 col = 0; col < cols; col++, cell++) {
-			switch (cell->kind) {
-				case CellIsEmpty:	printf(" |"); break;
-				case CellIsNumber:	printf("%.5Lf |", cell->as.num); break;
-				case CellIsError:	printf("%s |", cell->as.txt.s); break;
-				case CellIsText:	printf("%.*s |", (int) cell->as.txt.len, cell->as.txt.s); break;
-			}
-		}
-		putchar(10);
-	}
-}
-
 static void solveCopying (struct Cell *cell, struct Cell *ref)
 {
 	if (ref >= cell)
@@ -316,3 +309,46 @@ static void solveCopying (struct Cell *cell, struct Cell *ref)
 
 	memcpy(cell, ref, sizeof(*cell));
 }
+
+static void adjustColWidth (const struct Cell *const justMade, u16 *currWidth, const u16 decPrec)
+{
+	u16 thisWidth = 0;
+
+	switch (justMade->kind) {
+		case CellIsError:
+		{ thisWidth = (u16) strlen(justMade->as.txt.s); break; }
+
+		case CellIsText:
+		{ thisWidth = justMade->as.txt.len; break; }
+
+		case CellIsNumber: {
+			thisWidth += decPrec + 1;
+			i64 asInt = (i64) justMade->as.num;
+			while (asInt) { asInt /= 10; thisWidth++; }
+			break;
+		}
+	}
+
+	*currWidth = (*currWidth > thisWidth) ? *currWidth : thisWidth;
+}
+
+static void printTable (struct Cell *cell, const u16 *wds, const u16 rows, const u16 cols, const u16 dp)
+{
+	putchar(10);
+	for (u16 row = 0; row < rows; row++) {
+		for (u16 col = 0; col < cols; col++, cell++) {
+			const u16 maxW = wds[col];
+
+			switch (cell->kind) {
+				case CellIsEmpty:	printf(" "); break;
+				case CellIsNumber:	printf(" %-*.*Lf ", maxW, dp, cell->as.num); break;
+				case CellIsError:	printf(" %-*.s ", maxW, cell->as.txt.s); break;
+				case CellIsText:	printf(" %-*.*s ", maxW, (int) cell->as.txt.len, cell->as.txt.s); break;
+			}
+		}
+		putchar(10);
+	}
+	putchar(10);
+}
+
+

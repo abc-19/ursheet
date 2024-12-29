@@ -96,10 +96,11 @@ struct Cell
 
 struct UrSh
 {
-	struct	{ u16 rows, cols; } sz;
+	struct	{ u16 rows, cols, *widths; } sz;
 	struct	Cell *grid;
 	size_t	length;
 	char	*filename, *src;
+	u16		decPrec;
 };
 
 #endif
