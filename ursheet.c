@@ -7,94 +7,8 @@
  *	  '-\__Y__/-'
  *	     `---`
  */
-#include <err.h>
-#include <ctype.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
-#include <getopt.h>
-#include <assert.h>
-
-#define	u8		unsigned char
-#define	u16		unsigned short
-#define	u32		unsigned int
-#define	u64		unsigned long
-
-#define	i8		char
-#define	i16		short
-#define	i32		int
-#define	i64		long
-
-#define	Bool	unsigned char
-#define	True	1
-#define False	0
-
-#define	FAMILY_SIZE	64
-#define	MAX_COLS	26 + 25 * 26
-#define	MAX_ROWS	256
-
-enum TokenKind
-{
-	TokenIsString		= '"',
-	TokenIsReference	= '@',
-	TokenIsDelimiter	= '|',
-	TokenIsAdd			= '+',
-	TokenIsMul			= '*',
-	TokenIsDiv			= '/',
-	TokenIsSub			= '-',
-	TokenIsExpr			= '=',
-	TokenIsClone		= '^',
-	TokenIsNumber,
-};
-
-enum CellKind
-{
-	CellIsEmpty		= 0,
-	CellIsError		= 1,
-	CellIsNumber	= TokenIsNumber,
-	CellIsText		= TokenIsString,
-};
-
-enum CellErrs
-{
-	ErrCellOverflow		= 0,
-	ErrCellUnknown		= 1,
-	ErrCellMalformed	= 2,
-	ErrCellBounds		= 3,
-	ErrCellPremature	= 4
-};
-
-struct Cell;
-
-union As
-{
-	struct { const char *s; size_t len; } txt;
-	struct Cell *ref;
-	long double num;
-};
-
-struct Token
-{
-	union	As as;
-	enum	TokenKind kind;
-};
-
-struct Cell
-{
-	struct	Token family[FAMILY_SIZE];
-	union	As as;
-	u16		nthT;
-	enum	CellKind kind;
-	Bool	solved;
-};
-
-struct UrSh
-{
-	struct	{ u16 rows, cols; } sz;
-	struct	Cell *grid;
-	size_t	length;
-	char	*filename, *src;
-};
+#include "incl.h"
+#include "solver.h"
 
 static void readContents (struct UrSh *const, FILE*);
 static void getTableDimensions (const char*, u16*, u16*);
@@ -113,7 +27,7 @@ static void printTable (struct Cell*, const u16, const u16);
 
 static void solveCopying (struct Cell*, struct Cell*);
 
-int main (int argc, char **argv)
+int _____main (int argc, char **argv)
 {
 	if (argc != 2)
 		errx(EXIT_SUCCESS, "usage: %s <sheet>\nThat simple ;)", *argv);
@@ -196,8 +110,10 @@ static void lexTable (struct UrSh *const us)
 			case '/':
 			case '*':
 			case '^':
+			case '(':
+			case ')':
 			case '=': {
-				pushTokenIntoCell(currentCell, chr, tokInfo);
+				pushTokenIntoCell(currentCell, (enum TokenKind) chr, tokInfo);
 				continue;
 			}
 
@@ -350,8 +266,6 @@ static i16 getReferenceAsToken (const char *const src, size_t *k, const u16 rows
 setPosition:
 	if (col >= cols || row >= rows)
 		return -1;
-
-	printf("%d %d\n", col, row);
 
 	return row * rows + col;
 }

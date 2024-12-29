@@ -6,7 +6,7 @@
 #	  '-\__Y__/-'
 #	     `---`
 
-objs = ursheet.o
+objs = ursheet.o solver.o
 flags = -Wall -Wextra -Wpedantic -std=c11
 exec = UrSh
 
