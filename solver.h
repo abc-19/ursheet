@@ -11,6 +11,6 @@
 #define URSH_SOVER_H
 #include "incl.h"
 
-void solverSolve (struct Cell*);
+enum CellErrs solverSolve (struct Cell*);
 
 #endif

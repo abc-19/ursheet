@@ -89,9 +89,9 @@ struct Cell
 {
 	struct	Token family[FAMILY_SIZE];
 	union	As as;
-	u16		nthT;
+	u16		nthT, opPos;
 	enum	CellKind kind;
-	Bool	solved;
+	Bool	clonable;
 };
 
 struct UrSh

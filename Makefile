@@ -7,7 +7,7 @@
 #	     `---`
 
 objs = ursheet.o solver.o
-flags = -Wall -Wextra -Wpedantic -std=c11
+flags = -Wall -Wextra -Wpedantic -std=c11 -Wno-switch
 exec = UrSh
 
 all: $(exec)

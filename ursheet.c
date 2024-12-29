@@ -219,7 +219,7 @@ static void operateCell (struct Cell *const cc)
 
 		case TokenIsExpr:
 			solverSolve(cc);
-			errx(0, "OK!");
+			errx(0, "fini!");
 			break;
 
 		case TokenIsClone:
