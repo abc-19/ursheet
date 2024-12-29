@@ -106,6 +106,8 @@ static void lexTable (struct UrSh *const us)
 		Bool isNumber = False;
 
 		switch (chr) {
+			case ' ': case '\t': continue;
+
 			case '+':
 			case '/':
 			case '*':
@@ -137,11 +139,13 @@ static void lexTable (struct UrSh *const us)
 				i16 at = getReferenceAsToken(us->src, &k, us->sz.rows, us->sz.cols);
 
 				if (at == -1)
-				{ setCell2Error(currentCell, ErrCellBounds); continue; }
+				{ puts("got err"); setCell2Error(currentCell, ErrCellBounds); }
 
-				tokInfo.ref = &us->grid[at];
+				else {
+					tokInfo.ref = &us->grid[at];
+					pushTokenIntoCell(currentCell, TokenIsReference, tokInfo);
+				}
 
-				pushTokenIntoCell(currentCell, TokenIsReference, tokInfo);
 				continue;
 			}
 		}
@@ -151,7 +155,7 @@ static void lexTable (struct UrSh *const us)
 			{ isNumber = True; goto getNumber; }
 
 			else
-			pushTokenIntoCell(currentCell, chr, tokInfo);
+			{ pushTokenIntoCell(currentCell, chr, tokInfo); }
 
 			continue;
 		}
@@ -202,7 +206,7 @@ static void setCell2Error (struct Cell *const cc, u8 which)
 
 static void operateCell (struct Cell *const cc)
 {
-	if (cc->nthT == 0) return;
+	if (cc->nthT == 0 || cc->kind == CellIsError) return;
 
 	const enum TokenKind header = cc->family[0].kind;
 
@@ -223,6 +227,7 @@ static void operateCell (struct Cell *const cc)
 			break;
 
 		case TokenIsClone:
+
 			break;
 
 		default:
@@ -267,7 +272,7 @@ static i16 getReferenceAsToken (const char *const src, size_t *k, const u16 rows
 
 setPosition:
 	if (col >= cols || row >= rows)
-		return -1;
+	{ return -1; }
 
 	return row * cols + col;
 }

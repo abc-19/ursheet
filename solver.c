@@ -189,7 +189,7 @@ static enum CellErrs doMath (struct Cell *cc)
 		{ nums[nthn++] = tok.as.num; }
 
 		else if (nthn > 1)
-		{ long double ans = dOp(nums[nthn - 2], nums[nthn - 1], tok.kind); nums[--nthn - 1] = ans; }
+		{ nums[nthn - 2] = dOp(nums[nthn - 2], nums[nthn - 1], tok.kind); nthn--; }
 	}
 
 	cc->kind = CellIsNumber;
