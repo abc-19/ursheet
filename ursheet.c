@@ -27,7 +27,7 @@ static void printTable (struct Cell*, const u16, const u16);
 
 static void solveCopying (struct Cell*, struct Cell*);
 
-int _____main (int argc, char **argv)
+int main (int argc, char **argv)
 {
 	if (argc != 2)
 		errx(EXIT_SUCCESS, "usage: %s <sheet>\nThat simple ;)", *argv);
@@ -218,6 +218,8 @@ static void operateCell (struct Cell *const cc)
 			break;
 
 		case TokenIsExpr:
+			solverSolve(cc);
+			errx(0, "OK!");
 			break;
 
 		case TokenIsClone:

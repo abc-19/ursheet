@@ -23,6 +23,8 @@ static enum CellErrs pushQueue (struct Exprssn*, const enum TokenKind);
 static Bool gottaExchange (enum TokenKind, enum TokenKind);
 static enum CellErrs mergeFamily (struct Exprssn*);
 
+static enum CellErrs rightParFound (struct Exprssn*);
+
 void solverSolve (struct Cell *cell)
 {
 	struct Exprssn ex = {
@@ -32,7 +34,7 @@ void solverSolve (struct Cell *cell)
 
 	enum CellErrs e = ErrCellNotErr;
 
-	for (u16 k = 0; k < cell->nthT && e == ErrCellNotErr; k++) {
+	for (u16 k = 1; k < cell->nthT && e == ErrCellNotErr; k++) {
 		struct Token t = cell->family[k];
 
 		switch (t.kind) {
@@ -95,7 +97,7 @@ static enum CellErrs pushQueue (struct Exprssn *ex, const enum TokenKind kind)
 	}
 
 	if (kind == TokenIsRpar)
-		return ErrCellNotErr;
+		return rightParFound(ex);
 	
 	enum TokenKind top = ex->family[ex->qpos - 1].kind;
 	while (gottaExchange(top, kind) && ex->qpos > PARITION) {
@@ -127,7 +129,21 @@ static enum CellErrs mergeFamily (struct Exprssn *ex)
 	return e;
 }
 
-int main ()
+static enum CellErrs rightParFound (struct Exprssn *ex)
+{
+	Bool thereWasPar = False;
+
+	while (ex->qpos > PARITION) {
+		const enum TokenKind kind = ex->family[--ex->qpos].kind;
+		if (kind == TokenIsLpar) { thereWasPar = True; break; }
+
+		pushStack(ex, 0, ex->family[ex->qpos].kind);
+	}
+
+	return thereWasPar ? ErrCellNotErr : ErrCellMalformed;
+}
+
+int _main ()
 {
 	struct Token tokens[] = {
 		{ .as.num = 1, .kind = TokenIsNumber },
