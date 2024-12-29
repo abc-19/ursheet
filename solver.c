@@ -71,15 +71,15 @@ enum CellErrs solverSolve (struct Cell *cc)
 	if ((e != ErrCellNotErr) || (e = mergeFamily(&ex)) != ErrCellNotErr || (e = setUpExprInCell(&ex, cc)) != ErrCellNotErr)
 		return e;
 
-	for (u16 k = 0; k < cc->nthT; k++) {
-		struct Token t = cc->family[k];
+	for (u16 k = 0; k < ex.spos; k++) {
+		struct Token t = ex.family[k];
 		if (t.kind == TokenIsNumber)
 			printf("%Lf ", t.as.num);
 		else
 			printf("%c ", t.kind);
 	}
-	putchar(10);
 
+	putchar(10);
 	return doMath(cc);
 }
 
@@ -119,7 +119,7 @@ static Bool gottaExchange (enum TokenKind top, enum TokenKind curr)
 	static const u16 samePrec[2] = { '-' * '+', '*' * '/' };
 	u16 prec = top * curr;
 
-	if (prec == samePrec[0] || prec == samePrec[1]) return True;
+	if (prec == samePrec[0] || prec == samePrec[1] || top == curr)  return True;
 	if ((curr == '-' || curr == '+') && (top == '*' || top == '/')) return True;
 
 	return False;
@@ -162,19 +162,14 @@ static enum CellErrs setUpExprInCell (struct Exprssn *ex, struct Cell *cc)
 	cc->nthT = ex->spos;
 	cc->opPos = ex->firstOpPos;
 
-	const u16 nOpds = ex->firstOpPos, nOpts = ex->spos - ex->firstOpPos;
-	return ((nOpds - nOpts) != 1) ?  ErrCellMalformed : ErrCellNotErr;
+	// Make sure everything is balanced...
+	// firstOpPos is realy necessary?
 }
 
 static enum CellErrs doMath (struct Cell *cc)
 {
-	const long double a = cc->family[0].as.num, b = cc->family[1].as.num;
-	cc->as.num = dOp(a, b, cc->family[cc->opPos].kind);
-
-	for (u16 k = 2, j = cc->opPos + 1; k < cc->opPos; k++)
-		cc->as.num = dOp(cc->as.num, cc->family[k].as.num, cc->family[j++].kind);
-
-	errx(0, "%Lf\n", cc->as.num);
+	// Perform ops
+	errx(0, "got: %Lf\n", cc->as.num);
 }
 
 static long double dOp (long double a, long double b, enum TokenKind o)
