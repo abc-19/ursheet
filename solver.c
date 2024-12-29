@@ -21,6 +21,7 @@ static enum CellErrs pushStack (struct Exprssn*, const long double, const enum T
 static enum CellErrs pushQueue (struct Exprssn*, const enum TokenKind);
 
 static Bool gottaExchange (enum TokenKind, enum TokenKind);
+static enum CellErrs mergeFamily (struct Exprssn*);
 
 void solverSolve (struct Cell *cell)
 {
@@ -47,15 +48,31 @@ void solverSolve (struct Cell *cell)
 			case TokenIsReference:
 				break;
 
-			case TokenIsNumber: e = pushStack(&ex, t.as.num, TokenIsNumber); break;
-			default: e = ErrCellMalformed; break;
+			case TokenIsNumber:
+				e = pushStack(&ex, t.as.num, TokenIsNumber);
+				break;
+
+			default:
+				e = ErrCellMalformed;
+				break;
 		}
 	}
 
-	if (e != ErrCellNotErr)
+	if ((e != ErrCellNotErr) || (e = mergeFamily(&ex)) != ErrCellNotErr) {
+		errx(0, "%d\n", e);
 		return;
+	}
 
 	cell->kind = CellIsNumber;
+
+	for (u16 k = 0; k < ex.spos; k++) {
+		struct Token t = ex.family[k];
+		if (t.kind == TokenIsNumber)
+			printf("%Lf ", t.as.num);
+		else
+			printf("%c ", t.kind);
+	}
+	puts("");
 }
 
 static enum CellErrs pushStack (struct Exprssn *ex, const long double asNum, const enum TokenKind asOp)
@@ -98,6 +115,15 @@ static Bool gottaExchange (enum TokenKind top, enum TokenKind curr)
 	if ((curr == '-' || curr == '+') && (top == '*' || top == '/')) return True;
 
 	return False;
+}
+
+static enum CellErrs mergeFamily (struct Exprssn *ex)
+{
+	enum CellErrs e = ErrCellNotErr;
+
+	while (ex->qpos >= PARITION && e == ErrCellNotErr)
+		e = pushStack(ex, 0, ex->family[--ex->qpos].kind);
+	return e;
 }
 
 int main ()
