@@ -72,6 +72,7 @@ void solverSolve (struct Cell *cell)
 		else
 			printf("%c ", t.kind);
 	}
+
 	puts("");
 }
 
@@ -130,13 +131,15 @@ int main ()
 {
 	struct Token tokens[] = {
 		{ .as.num = 1, .kind = TokenIsNumber },
-		{ .as.num = 0, .kind = TokenIsAdd },
+		{ .as.num = 0, .kind = TokenIsDiv },
 		{ .as.num = 2, .kind = TokenIsNumber },
+		{ .as.num = 0, .kind = TokenIsMul },
+		{ .as.num = 3, .kind = TokenIsNumber },
 	};
 
 	struct Cell c;
-	memcpy(c.family, tokens, sizeof(struct Token) * 4);
-	c.nthT = 3;
+	memcpy(c.family, tokens, sizeof(struct Token) * 5);
+	c.nthT = 5;
 
 	solverSolve(&c);
 
