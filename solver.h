@@ -12,5 +12,6 @@
 #include "incl.h"
 
 enum CellErrs solverSolve (struct Cell*);
+Bool solverClone (struct Cell*, struct Cell*, const u16);
 
 #endif

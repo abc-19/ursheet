@@ -17,7 +17,7 @@ static void lexTable (struct UrSh *const);
 static void pushTokenIntoCell (struct Cell *const, enum TokenKind, union As);
 
 static void setCell2Error (struct Cell *const, u8);
-static void operateCell (struct Cell *const);
+static void operateCell (struct Cell *const, const struct Cell *const, const u16);
 
 static void getStringAsToken (const char *const, size_t*, union As*);
 static i16 getReferenceAsToken (const char *const, size_t*, const u16, const u16);
@@ -96,6 +96,8 @@ static void getTableDimensions (const char *src, u16 *row, u16 *col)
 
 static void lexTable (struct UrSh *const us)
 {
+	const struct Cell *firstRow = &us->grid[us->sz.cols - 1];
+
 	union As tokInfo;
 	struct Cell *currentCell = &us->grid[0];
 
@@ -120,7 +122,7 @@ static void lexTable (struct UrSh *const us)
 			}
 
 			case '|': {
-				operateCell(currentCell++);
+				operateCell(currentCell++, firstRow, us->sz.cols);
 				continue;
 			}
 
@@ -139,7 +141,7 @@ static void lexTable (struct UrSh *const us)
 				i16 at = getReferenceAsToken(us->src, &k, us->sz.rows, us->sz.cols);
 
 				if (at == -1)
-				{ puts("got err"); setCell2Error(currentCell, ErrCellBounds); }
+				{ setCell2Error(currentCell, ErrCellBounds); }
 
 				else {
 					tokInfo.ref = &us->grid[at];
@@ -204,7 +206,7 @@ static void setCell2Error (struct Cell *const cc, u8 which)
 	cc->kind = CellIsError;
 }
 
-static void operateCell (struct Cell *const cc)
+static void operateCell (struct Cell *const cc, const struct Cell *fRow, const u16 nCols)
 {
 	if (cc->nthT == 0 || cc->kind == CellIsError) return;
 
@@ -227,7 +229,11 @@ static void operateCell (struct Cell *const cc)
 			break;
 
 		case TokenIsClone:
+			if (cc <= fRow)
+			{ setCell2Error(cc, ErrCellPremature); }
 
+			else if (!solverClone(cc, (struct Cell*) (cc - nCols), nCols))
+			{ setCell2Error(cc, ErrCellMalformed); }
 			break;
 
 		default:
@@ -254,11 +260,11 @@ static i16 getReferenceAsToken (const char *const src, size_t *k, const u16 rows
 	u16 col = 0, row = 0;
 
 	*k += 1;
-	if (isalpha(src[*k])) col = (u16) (src[*k] - 'a');
+	if (isalpha(src[*k])) col = (u16) (tolower(src[*k]) - 'a');
 
 	*k += 1;
 	if (isalpha(src[*k - 1]) && isalpha(src[*k])) {
-		col = ((u16) (src[*k - 1] - 'a' + 1) * 26) + ((u16) (src[*k] - 'a'));
+		col = ((u16) (tolower(src[*k - 1]) - 'a' + 1) * 26) + ((u16) (tolower(src[*k]) - 'a'));
 		*k += 1;
 	}
 

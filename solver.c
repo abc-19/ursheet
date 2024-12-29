@@ -73,10 +73,29 @@ enum CellErrs solverSolve (struct Cell *cc)
 		}
 	}
 
+
+
 	if ((e != ErrCellNotErr) || (e = mergeFamily(&ex)) != ErrCellNotErr || (e = setUpExprInCell(&ex, cc)) != ErrCellNotErr)
 		return e;
 
 	return doMath(cc);
+}
+
+Bool solverClone (struct Cell *cc, struct Cell *clone2, const u16 nCols)
+{
+	memcpy(cc, clone2, sizeof(*clone2));
+
+	if (!clone2->clonable)
+	{ return True; }
+
+	for (u16 k = 0; k < cc->nthT; k++) {
+		struct Token *tok = &cc->family[k];
+
+		if (tok->kind == TokenIsReference)
+		{ tok->as.ref += nCols; }
+	}
+
+	return doMath(cc) == ErrCellNotErr;
 }
 
 static enum CellErrs pushStack (struct Exprssn *ex, const long double asNum, struct Cell *asRef, const enum TokenKind its)
@@ -154,12 +173,13 @@ static enum CellErrs mergeFamily (struct Exprssn *ex)
 
 	while (ex->qpos > PARITION && e == ErrCellNotErr)
 		e = pushStack(ex, 0, NULL, ex->family[--ex->qpos].kind);
+
 	return e;
 }
 
 static enum CellErrs setUpExprInCell (struct Exprssn *ex, struct Cell *cc)
 {
-	if (ex->spos < 2)
+	if (ex->spos == 0)
 	{ return ErrCellMalformed; }
 
 	if (ex->refsUsed)
@@ -219,3 +239,4 @@ static long double dOp (long double a, long double b, enum TokenKind o)
 	*/
 	return 0;
 }
+
