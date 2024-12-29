@@ -18,7 +18,7 @@ struct Exprssn
 	Bool refsUsed;
 };
 
-static enum CellErrs pushStack (struct Exprssn*, const long double, const enum TokenKind);
+static enum CellErrs pushStack (struct Exprssn*, const long double, struct Cell*, const enum TokenKind);
 static enum CellErrs pushQueue (struct Exprssn*, const enum TokenKind);
 
 static Bool gottaExchange (enum TokenKind, enum TokenKind);
@@ -56,11 +56,15 @@ enum CellErrs solverSolve (struct Cell *cc)
 				break;
 
 			case TokenIsReference:
+				if (t.as.ref >= cc) return ErrCellPremature;
+				if (t.as.ref->kind != CellIsNumber) return ErrCellMalformed;
+
+				e = pushStack(&ex, 0, t.as.ref, TokenIsReference);
 				ex.refsUsed = True;
 				break;
 
 			case TokenIsNumber:
-				e = pushStack(&ex, t.as.num, TokenIsNumber);
+				e = pushStack(&ex, t.as.num, NULL, TokenIsNumber);
 				break;
 
 			default:
@@ -72,28 +76,29 @@ enum CellErrs solverSolve (struct Cell *cc)
 	if ((e != ErrCellNotErr) || (e = mergeFamily(&ex)) != ErrCellNotErr || (e = setUpExprInCell(&ex, cc)) != ErrCellNotErr)
 		return e;
 
-	/*for (u16 k = 0; k < ex.spos; k++) {
-		struct Token t = ex.family[k];
-		if (t.kind == TokenIsNumber)
-			printf("%Lf ", t.as.num);
-		else
-			printf("%c ", t.kind);
-	}
-	putchar(10);*/
-
 	return doMath(cc);
 }
 
-static enum CellErrs pushStack (struct Exprssn *ex, const long double asNum, const enum TokenKind asOp)
+static enum CellErrs pushStack (struct Exprssn *ex, const long double asNum, struct Cell *asRef, const enum TokenKind its)
 {
 	if (ex->spos == PARITION) return ErrCellOverflow;
+
 	struct Token *this = &ex->family[ex->spos++];
+	this->kind = its;
 
-	if (asOp == TokenIsNumber) ex->opds++;
-	else ex->opts++;
-
-	this->as.num = asNum;
-	this->kind = asOp;
+	switch (its) {
+		case TokenIsReference:
+			this->as.ref = asRef;
+			ex->opds++;
+			break;
+		case TokenIsNumber:
+			this->as.num = asNum;
+			ex->opds++;
+			break;
+		default:
+			ex->opts++;
+			break;
+	}
 
 	return ErrCellNotErr;
 }
@@ -110,7 +115,7 @@ static enum CellErrs pushQueue (struct Exprssn *ex, const enum TokenKind kind)
 	
 	enum TokenKind top = ex->family[ex->qpos - 1].kind;
 	while (gottaExchange(top, kind) && ex->qpos > PARITION) {
-		pushStack(ex, 0, top);
+		pushStack(ex, 0, NULL, top);
 		top = ex->family[--ex->qpos - 1].kind;
 	}
 
@@ -137,7 +142,7 @@ static enum CellErrs rightParFound (struct Exprssn *ex)
 		const enum TokenKind kind = ex->family[--ex->qpos].kind;
 		if (kind == TokenIsLpar) { thereWasPar = True; break; }
 
-		pushStack(ex, 0, ex->family[ex->qpos].kind);
+		pushStack(ex, 0, NULL, ex->family[ex->qpos].kind);
 	}
 
 	return thereWasPar ? ErrCellNotErr : ErrCellMalformed;
@@ -148,7 +153,7 @@ static enum CellErrs mergeFamily (struct Exprssn *ex)
 	enum CellErrs e = ErrCellNotErr;
 
 	while (ex->qpos > PARITION && e == ErrCellNotErr)
-		e = pushStack(ex, 0, ex->family[--ex->qpos].kind);
+		e = pushStack(ex, 0, NULL, ex->family[--ex->qpos].kind);
 	return e;
 }
 
@@ -176,7 +181,11 @@ static enum CellErrs doMath (struct Cell *cc)
 
 	for (u16 k = 0; k < cc->nthT; k++) {
 		struct Token tok = cc->family[k];
-		if (tok.kind == TokenIsNumber)
+
+		if (tok.kind == TokenIsReference)
+		{ nums[nthn++] = tok.as.ref->as.num; }
+
+		else if (tok.kind == TokenIsNumber)
 		{ nums[nthn++] = tok.as.num; }
 
 		else if (nthn > 1)
