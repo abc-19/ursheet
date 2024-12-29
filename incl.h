@@ -30,7 +30,7 @@
 
 #define	FAMILY_SIZE	64
 #define	MAX_COLS	26 * 26 + 25
-#define	MAX_ROWS	256
+#define	MAX_ROWS	1024
 
 enum TokenKind
 {
@@ -96,7 +96,7 @@ struct UrSh
 	struct	Cell *grid;
 	size_t	length;
 	char	*filename, *src;
-	u16		decPrec;
+	u16		dp;
 };
 
 #endif

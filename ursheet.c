@@ -38,7 +38,7 @@ static void printTable (struct Cell*, const u16*, const u16, const u16, const u1
 int main (int argc, char **argv)
 {
 	struct UrSh us = {0};
-	parseArgs(argc, argv, &us.filename, &us.decPrec);
+	parseArgs(argc, argv, &us.filename, &us.dp);
 
 	readContents(&us, fopen(us.filename, "r"));
 	getTableDimensions(us.src, &us.sz.rows, &us.sz.cols);
@@ -54,11 +54,10 @@ int main (int argc, char **argv)
 	us.sz.widths = (u16*) calloc(us.sz.cols, sizeof(u16));
 	assert(us.sz.widths && "cannot allocate memory");
 
-	us.decPrec = 2;
-
 	lexTable(&us);
-	printTable(&us.grid[0], us.sz.widths, us.sz.rows, us.sz.cols, us.decPrec);
+	printTable(&us.grid[0], us.sz.widths, us.sz.rows, us.sz.cols, us.dp);
 
+	free(us.sz.widths);
 	free(us.grid);
 	free(us.src);
 	return 0;
@@ -66,13 +65,17 @@ int main (int argc, char **argv)
 
 static void parseArgs (int argc, char **argv, char **filename, u16 *dp)
 {
+	*dp = 1;
 	i32 op;
-	while ((op = getopt(argc, argv, ":s:d:")) != -1) {
+
+	while ((op = getopt(argc, argv, ":s:d:h")) != -1) {
 		switch (op) {
 			case 's': *filename = optarg; break;
 			case 'd': *dp = atoi(optarg); break;
 			case ':': errx(EXIT_FAILURE, "'-%c' expects an argument.", optopt);
 			case '?': errx(EXIT_FAILURE, "'-%c' is not an option.", optopt);
+			case 'h':
+				errx(EXIT_SUCCESS, "uage: %s -s <sheet> -d <decimal-presicion>", *argv);
 		}
 	}
 }
@@ -146,7 +149,7 @@ static void lexTable (struct UrSh *const us)
 
 			case '|': {
 				operateCell(currentCell, firstRow, us->sz.cols);
-				adjustColWidth(currentCell++, &us->sz.widths[ncol++], us->decPrec);
+				adjustColWidth(currentCell++, &us->sz.widths[ncol++], us->dp);
 				continue;
 			}
 
@@ -327,7 +330,7 @@ static void solveCopying (struct Cell *cell, struct Cell *ref)
 	memcpy(cell, ref, sizeof(*cell));
 }
 
-static void adjustColWidth (const struct Cell *const justMade, u16 *currWidth, const u16 decPrec)
+static void adjustColWidth (const struct Cell *const justMade, u16 *currWidth, const u16 dp)
 {
 	u16 thisWidth = 0;
 
@@ -339,7 +342,7 @@ static void adjustColWidth (const struct Cell *const justMade, u16 *currWidth, c
 		{ thisWidth = justMade->as.txt.len; break; }
 
 		case CellIsNumber: {
-			thisWidth += decPrec + 1;
+			thisWidth += dp + 1;
 			i64 asInt = (i64) justMade->as.num;
 			while (asInt) { asInt /= 10; thisWidth++; }
 			break;
@@ -367,5 +370,4 @@ static void printTable (struct Cell *cell, const u16 *wds, const u16 rows, const
 	}
 	putchar(10);
 }
-
 

@@ -1,0 +1,26 @@
+	
+		 __         __
+		/  \.-"""-./  \		UrSheet - includes.
+		\    -   -    /		abc19
+		 |   o   o   |		Dec 29 2024
+		 \  .-'''-.  /
+		  '-\__Y__/-'
+		     `---`
+
+	This idea comes from a project which Tsoding made some time ago, the idea
+	is to implement a simple spreadsheet engine which is able to do
+	basic arithmetic being able to make references to other cells avoiding
+	all possible errors, for sure... Also must be able to clone cells from above...
+
+	My implementation does all that, you can see how the syntax is in
+	'Sheets/tester' and how some errors are caught by the lexer and parser :)
+	such as bad referencing or non-sense tokens.
+
+	./UrSh	-s <filename> -d <decimal-precision>
+
+	Tsoding implementation: https://github.com/tsoding/minicel
+
+	Viva Peter Cat Recording CO
+	- Love Demons
+	- Floated by
+	- Foolmuse
